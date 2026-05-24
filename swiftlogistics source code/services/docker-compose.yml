@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: swiftlogistics-postgres
+    environment:
+      POSTGRES_USER: swiftlogistics
+      POSTGRES_PASSWORD: swiftlogistics_pass
+      POSTGRES_DB: swiftlogistics_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - swiftlogistics-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swiftlogistics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - PostgreSQL Web Interface
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: swiftlogistics-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@swiftlogistics.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    networks:
+      - swiftlogistics-network
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: swiftlogistics-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - swiftlogistics-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # CMS Adapter (SOAP/XML)
+  cms-adapter:
+    build:
+      context: .
+      dockerfile: services/cms-adapter/Dockerfile
+    container_name: swiftlogistics-cms-adapter
+    ports:
+      - "5002:5002"
+    environment:
+      - FLASK_ENV=development
+    networks:
+      - swiftlogistics-network
+    depends_on:
+      - rabbitmq
+
+  # ROS Adapter (REST/JSON)
+  ros-adapter:
+    build:
+      context: .
+      dockerfile: services/ros-adapter/Dockerfile
+    container_name: swiftlogistics-ros-adapter
+    ports:
+      - "5003:5003"
+    environment:
+      - FLASK_ENV=development
+    networks:
+      - swiftlogistics-network
+    depends_on:
+      - rabbitmq
+
+  # WMS Adapter (TCP/IP)
+  wms-adapter:
+    build:
+      context: .
+      dockerfile: services/wms-adapter/Dockerfile
+    container_name: swiftlogistics-wms-adapter
+    ports:
+      - "5004:5004"
+      - "9999:9999"
+    environment:
+      - FLASK_ENV=development
+    networks:
+      - swiftlogistics-network
+    depends_on:
+      - rabbitmq
+
+  # Order Service
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    container_name: swiftlogistics-order-service
+    ports:
+      - "5001:5001"
+    environment:
+      - FLASK_ENV=development
+      - RABBITMQ_HOST=rabbitmq
+      - DATABASE_URL=postgresql://swiftlogistics:swiftlogistics_pass@postgres:5432/swiftlogistics_db
+    networks:
+      - swiftlogistics-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      cms-adapter:
+        condition: service_started
+      ros-adapter:
+        condition: service_started
+      wms-adapter:
+        condition: service_started
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: swiftlogistics-api-gateway
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+    networks:
+      - swiftlogistics-network
+    depends_on:
+      - order-service
+    volumes:
+      - ./client-portal:/app/static/client-portal
+      - ./driver-app:/app/static/driver-app
+
+networks:
+  swiftlogistics-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  rabbitmq-data:

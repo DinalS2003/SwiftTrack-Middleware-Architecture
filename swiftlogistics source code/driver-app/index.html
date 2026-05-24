@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwiftTrack - Driver App</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+        }
+        
+        .mobile-container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .driver-info {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #10b981;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .section {
+            padding: 20px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1f2937;
+        }
+        
+        .route-info {
+            background: linear-gradient(135deg, #10b98115 0%, #05966915 100%);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .route-stat {
+            text-align: center;
+        }
+        
+        .route-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .route-stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 3px;
+        }
+        
+        .delivery-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+        
+        .delivery-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+        
+        .delivery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .delivery-id {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+        
+        .delivery-status {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-delivered {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status-in_transit, .status-confirmed {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .delivery-address {
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        
+        .delivery-details {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .delivery-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-primary {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #059669;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .btn-secondary {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #d97706;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-card h2 {
+            text-align: center;
+            color: #1f2937;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4b5563;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s;
+            z-index: 1000;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        
+        .empty-state-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+        
+        .signature-pad {
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: crosshair;
+            touch-action: none;
+            margin-bottom: 15px;
+        }
+        
+        .priority-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+        
+        .priority-high {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .filter-tab {
+            padding: 8px 16px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .filter-tab:hover {
+            border-color: #667eea;
+        }
+        
+        .filter-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginScreen" class="login-screen">
+        <div class="login-card">
+            <h2>Driver Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Driver ID</label>
+                    <input type="text" id="driverId" value="DRIVER001" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" value="password" required>
+                </div>
+                <button type="submit" class="btn btn-secondary" style="width: 100%;">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="mainApp" class="hidden">
+        <div class="mobile-container">
+            <div class="header">
+                <h1>SwiftTrack Driver</h1>
+                <div class="driver-info" id="driverInfo">Driver: Loading...</div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDeliveries">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="completedDeliveries">0</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">Today's Route</div>
+                <div class="route-info">
+                    <div class="route-stat">
+                        <div class="route-stat-value" id="routeDistance">-</div>
+                        <div class="route-stat-label">Distance</div>
+                    </div>
+                    <div class="route-stat">
+                        <div class="route-stat-value" id="routeTime">-</div>
+                        <div class="route-stat-label">Est. Time</div>
+                    </div>
+                    <div class="route-stat">
+                        <div class="route-stat-value" id="routeStops">-</div>
+                        <div class="route-stat-label">Stops</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">Deliveries</div>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <button class="filter-tab active" onclick="filterDeliveries('all')">All</button>
+                    <button class="filter-tab" onclick="filterDeliveries('pending')">Pending</button>
+                    <button class="filter-tab" onclick="filterDeliveries('delivered')">Delivered</button>
+                    <button class="filter-tab" onclick="filterDeliveries('failed')">Failed</button>
+                </div>
+                <div id="deliveryList">
+                    <div class="empty-state">
+                        <div class="empty-state-icon"></div>
+                        <div>Loading deliveries...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="proofModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-title">Proof of Delivery</div>
+            <p style="color: #6b7280; margin-bottom: 20px;">Please get customer signature</p>
+            <canvas id="signaturePad" class="signature-pad" width="340" height="200"></canvas>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button class="btn" style="background: #6b7280; color: white;" onclick="clearSignature()">Clear</button>
+                <button class="btn btn-primary" onclick="saveProof()">Save and Complete</button>
+            </div>
+            <button class="btn" style="background: #f3f4f6; color: #6b7280; width: 100%; margin-top: 10px;" onclick="closeProofModal()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        let token = null;
+        let socket = null;
+        let currentDriver = null;
+        let manifest = null;
+        let currentDeliveryId = null;
+        let currentFilter = 'all';
+        const API_BASE = window.location.origin;
+        
+        let canvas, ctx, isDrawing = false;
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const driverId = document.getElementById('driverId').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!driverId || !password) {
+                alert('Please enter both Driver ID and password');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username: driverId,
+                        password: password,
+                        user_type: 'driver'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    token = data.token;
+                    currentDriver = driverId;
+                    
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('driverInfo').textContent = `Driver: ${currentDriver}`;
+                    
+                    connectWebSocket();
+                    loadManifest();
+                } else {
+                    const error = await response.json();
+                    alert('Login failed: ' + (error.error || 'Invalid credentials'));
+                }
+            } catch (error) {
+                alert('Connection error: ' + error.message);
+                console.error('Login error:', error);
+            }
+        });
+        
+        function connectWebSocket() {
+            socket = io(API_BASE);
+            
+            socket.on('connect', () => {
+                console.log('WebSocket connected');
+                socket.emit('subscribe', {user_id: currentDriver});
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('WebSocket disconnected');
+            });
+            
+            socket.on('route_updated', (data) => {
+                console.log('Route updated');
+                loadManifest();
+            });
+            
+            socket.on('order_confirmed', (data) => {
+                console.log('Order confirmed:', data);
+                loadManifest();
+            });
+            
+            socket.on('order_status_updated', (data) => {
+                console.log('Order status updated:', data);
+                loadManifest();
+            });
+            
+            // Auto-refresh manifest every 3 seconds
+            setInterval(() => {
+                if (currentDriver && token) {
+                    loadManifest();
+                }
+            }, 3000);
+        }
+        
+        async function loadManifest() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await fetch(`${API_BASE}/api/driver/manifest?driver_id=${currentDriver}&date=${today}`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                
+                if (response.ok) {
+                    manifest = await response.json();
+                    displayManifest(manifest);
+                } else {
+                    console.error('Failed to load manifest');
+                }
+            } catch (error) {
+                console.error('Error loading manifest:', error);
+                showNotification('Error loading deliveries');
+            }
+        }
+        
+        function displayManifest(data) {
+            const deliveryList = document.getElementById('deliveryList');
+            let deliveries = data.deliveries || [];
+            
+            // Map filter to order statuses
+            if (currentFilter === 'pending') {
+                deliveries = deliveries.filter(d => 
+                    d.status === 'processing' || d.status === 'order_confirmed' || d.status === 'dispatched_from_warehouse'
+                );
+            } else if (currentFilter !== 'all') {
+                deliveries = deliveries.filter(d => d.status === currentFilter);
+            }
+            
+            const allDeliveries = data.deliveries || [];
+            const completed = allDeliveries.filter(d => d.status === 'delivered').length;
+            const failed = allDeliveries.filter(d => d.status === 'failed').length;
+            const pending = allDeliveries.filter(d => 
+                d.status === 'processing' || d.status === 'order_confirmed' || d.status === 'dispatched_from_warehouse'
+            ).length;
+            
+            document.getElementById('totalDeliveries').textContent = allDeliveries.length;
+            document.getElementById('completedDeliveries').textContent = completed + failed;
+            
+            if (data.route) {
+                document.getElementById('routeDistance').textContent = data.route.total_distance || '-';
+                document.getElementById('routeTime').textContent = data.route.estimated_time || '-';
+                document.getElementById('routeStops').textContent = data.route.stops || '-';
+            }
+            
+            if (deliveries.length === 0) {
+                let emptyMessage = 'No deliveries';
+                if (currentFilter === 'pending') emptyMessage = 'No pending deliveries';
+                else if (currentFilter === 'delivered') emptyMessage = 'No completed deliveries';
+                else if (currentFilter === 'failed') emptyMessage = 'No failed deliveries';
+                
+                deliveryList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon"></div>
+                        <div>${emptyMessage}</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            deliveryList.innerHTML = deliveries.map((delivery, index) => {
+                // Map order status to delivery state
+                const orderStatus = delivery.status || 'pending'; // processing, order_confirmed, dispatched_from_warehouse, delivered, failed
+                const isReadyToCollect = orderStatus === 'processing' || orderStatus === 'order_confirmed';
+                const isDispatched = orderStatus === 'dispatched_from_warehouse';
+                const isDelivered = orderStatus === 'delivered';
+                const isFailed = orderStatus === 'failed';
+                
+                // Display status
+                let displayStatus = 'Ready to Collect';
+                if (isDispatched) displayStatus = 'Collected - On the Way';
+                else if (isDelivered) displayStatus = 'Delivered';
+                else if (isFailed) displayStatus = 'Failed';
+                
+                return `
+                    <div class="delivery-card">
+                        <div class="delivery-header">
+                            <span class="delivery-id">
+                                Stop ${index + 1}: ${delivery.delivery_id}
+                                ${delivery.priority === 'high' ? '<span class="priority-badge priority-high">HIGH PRIORITY</span>' : ''}
+                            </span>
+                            <span class="delivery-status status-${isDelivered ? 'delivered' : isFailed ? 'failed' : 'pending'}">
+                                ${displayStatus}
+                            </span>
+                        </div>
+                        <div class="delivery-address">
+                            ${delivery.address}<br>
+                        </div>
+                        <div class="delivery-details">
+                            <div>${delivery.packages} pkg(s)</div>
+                            <div>${delivery.order_id}</div>
+                        </div>
+                        ${delivery.notes ? `<div style="font-size: 12px; color: #6b7280; margin-top: 8px;">${delivery.notes}</div>` : ''}
+                        ${isFailed ? `
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #fecaca;">
+                                <div style="color: #dc2626; font-weight: 600; margin-bottom: 8px;">Delivery Failed</div>
+                                ${delivery.notes ? `<div style="font-size: 13px; color: #7f1d1d; background: #fee2e2; padding: 8px; border-radius: 5px;">Reason: ${delivery.notes}</div>` : ''}
+                                <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="retryDelivery('${delivery.delivery_id}')">
+                                    Retry Delivery
+                                </button>
+                            </div>
+                        ` : ''}
+                        ${isReadyToCollect ? `
+                            <div class="delivery-actions">
+                                <button class="btn btn-primary" style="width: 100%;" onclick="markCollected('${delivery.delivery_id}')">
+                                    📦 Mark as Collected from Warehouse
+                                </button>
+                            </div>
+                        ` : ''}
+                        ${isDispatched ? `
+                            <div class="delivery-actions">
+                                <button class="btn btn-primary" onclick="showProofModal('${delivery.delivery_id}')">
+                                    ✓ Mark Delivered
+                                </button>
+                                <button class="btn btn-danger" onclick="markFailed('${delivery.delivery_id}')">
+                                    ❌ Mark Failed
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function filterDeliveries(filter) {
+            currentFilter = filter;
+            
+            document.querySelectorAll('.filter-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            if (manifest) {
+                displayManifest(manifest);
+            }
+        }
+        
+        async function retryDelivery(deliveryId) {
+            if (confirm('Retry this delivery? It will be marked as pending.')) {
+                try {
+                    // Extract order ID from delivery ID
+                    const orderId = `ORD-${deliveryId.split('-')[1]}`;
+                    
+                    const response = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            status: 'dispatched_from_warehouse',
+                            notes: 'Retrying delivery'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        showNotification('✓ Delivery retry enabled');
+                        setTimeout(() => loadManifest(), 500);
+                    } else {
+                        alert('Failed to retry delivery');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            }
+        }
+        
+        function showProofModal(deliveryId) {
+            currentDeliveryId = deliveryId;
+            document.getElementById('proofModal').classList.remove('hidden');
+            
+            canvas = document.getElementById('signaturePad');
+            ctx = canvas.getContext('2d');
+            
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            
+            clearSignature();
+            
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+        }
+        
+        function startDrawing(e) {
+            isDrawing = true;
+            const pos = getPosition(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getPosition(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+        
+        function stopDrawing() {
+            isDrawing = false;
+        }
+        
+        function getPosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches ? e.touches[0] : e;
+            return {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+        }
+        
+        function clearSignature() {
+            ctx.fillStyle = '#f9fafb';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function closeProofModal() {
+            document.getElementById('proofModal').classList.add('hidden');
+            currentDeliveryId = null;
+        }
+        
+        async function saveProof() {
+            if (!currentDeliveryId) return;
+            
+            const signatureData = canvas.toDataURL('image/png');
+            
+            try {
+                // Simply mark as delivered - signature is capture confirmation
+                await markDelivered(currentDeliveryId);
+                closeProofModal();
+                
+            } catch (error) {
+                alert('Error saving proof: ' + error.message);
+            }
+        }
+        
+        async function markCollected(deliveryId) {
+            try {
+                // Extract order ID from delivery ID
+                const orderId = `ORD-${deliveryId.split('-')[1]}`;
+                
+                const response = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        status: 'dispatched_from_warehouse'
+                    })
+                });
+                
+                if (response.ok) {
+                    showNotification('✓ Package collected from warehouse. Customer notified.');
+                    setTimeout(() => loadManifest(), 500);
+                } else {
+                    alert('Failed to update status');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function markDelivered(deliveryId) {
+            try {
+                // Extract order ID from delivery ID
+                const orderId = `ORD-${deliveryId.split('-')[1]}`;
+                
+                const response = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        status: 'delivered'
+                    })
+                });
+                
+                if (response.ok) {
+                    showNotification('✓ Delivery completed. Customer notified.');
+                    setTimeout(() => loadManifest(), 500);
+                } else {
+                    alert('Failed to update delivery');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function markFailed(deliveryId) {
+            const reason = prompt('Reason for failure:', 'Customer not available');
+            if (!reason) return;
+            
+            try {
+                // Extract order ID from delivery ID
+                const orderId = `ORD-${deliveryId.split('-')[1]}`;
+                
+                const response = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        status: 'failed'
+                    })
+                });
+                
+                if (response.ok) {
+                    showNotification('❌ Delivery marked as failed. Retry request sent.');
+                    setTimeout(() => loadManifest(), 500);
+                } else {
+                    alert('Failed to update delivery');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        function showNotification(message) {
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.textContent = message;
+            document.body.appendChild(notif);
+            
+            setTimeout(() => notif.remove(), 3000);
+        }
+        
+        function logout() {
+            if (socket) socket.disconnect();
+            token = null;
+            currentDriver = null;
+            
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('driverId').value = '';
+            document.getElementById('password').value = '';
+        }
+        
+        setInterval(() => {
+            if (token && currentDriver) {
+                loadManifest();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
